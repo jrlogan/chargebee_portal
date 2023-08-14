@@ -1,0 +1,49 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function chargebee_portal_install() {
+  // Define the field for storing the Chargebee ID.
+  $field = array(
+    'field_name' => 'field_user_chargebee_id',
+    'type' => 'text',
+    'cardinality' => 1,
+    'settings' => array(
+      'max_length' => 255,
+    ),
+  );
+  field_create_field($field);
+
+  // Define the instance for the user profile.
+  $instance = array(
+    'field_name' => 'field_user_chargebee_id',
+    'entity_type' => 'user',
+    'bundle' => 'user',
+    'label' => t('Chargebee ID'),
+    'description' => t('Enter your Chargebee ID'),
+    'widget' => array(
+      'type' => 'textfield',
+    ),
+    'settings' => array(
+      'user_register_form' => FALSE,
+    ),
+    'display' => array(
+      'default' => array('type' => 'hidden'),
+    ),
+  );
+  field_create_instance($instance);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function chargebee_portal_uninstall() {
+  // Delete the instance.
+  $instance = field_info_instance('user', 'field_user_chargebee_id', 'user');
+  field_delete_instance($instance);
+
+  // Delete the field.
+  $field = field_info_field('field_user_chargebee_id');
+  field_delete_field($field['field_name']);
+}

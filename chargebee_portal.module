@@ -1,0 +1,166 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function chargebee_portal_menu() {
+  $items = array();
+
+  $items['admin/config/services/chargebee_portal'] = array(
+    'title' => 'Chargebee Portal',
+    'description' => 'Configure the Chargebee Portal settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('chargebee_portal_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'chargebee_portal.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/services/chargebee_portal/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Configure the Chargebee Portal settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('chargebee_portal_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'chargebee_portal.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+  $items['admin/config/services/chargebee_portal/testing'] = array(
+    'title' => 'Testing',
+    'description' => 'Configure the Chargebee Portal testing settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('chargebee_portal_admin_testing_settings'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'chargebee_portal.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+
+  $items['payment-portal'] = array(
+  'title' => 'Payment Portal',
+  'page callback' => 'chargebee_portal_payment_portal_redirect',
+  'access callback' => TRUE,
+  'type' => MENU_CALLBACK,
+);
+
+  return $items;
+}
+
+
+/**
+ * Redirect user to Chargebee payment portal.
+ */
+function chargebee_portal_payment_portal_redirect() {
+  global $user;
+
+  // Load the user account.
+  $account = user_load($user->uid);
+  $chargebee_id = isset($account->field_user_chargebee_id[LANGUAGE_NONE][0]['value']) ? $account->field_user_chargebee_id[LANGUAGE_NONE][0]['value'] : '';
+
+  if (empty($chargebee_id)) {
+    drupal_set_message(t('Chargebee ID not found.'), 'error');
+    drupal_goto('<front>');
+    return;
+  }
+
+  // Determine the current path.
+  $current_path = current_path();
+
+  // Determine the environment based on the path.
+  if ($current_path == 'admin/config/services/chargebee_portal/testing') {
+    $api_key = variable_get('chargebee_portal_test_api_key', '');
+    $url = variable_get('chargebee_portal_test_url', '');
+  } else {
+    $api_key = variable_get('chargebee_live_api_key', '');
+    $url = variable_get('chargebee_live_portal_url', '');
+  }
+
+  // Make a call to the Chargebee "Create a portal session" API.
+  $response = chargebee_portal_create_session($chargebee_id, $api_key, $url);
+
+  if (isset($response['access_url'])) {
+    // Redirect the user to the access URL provided by Chargebee.
+    drupal_goto($response['access_url']);
+  } else {
+    drupal_set_message(t('Failed to create a portal session.'), 'error');
+    drupal_goto('<front>');
+  }
+}
+
+
+function chargebee_portal_create_session($chargebee_id, $api_key, $url) {
+  // Log the input parameters and payload being sent to the API.
+  watchdog('chargebee_portal', 'Input Parameters: Chargebee ID: @chargebee_id, API Key: @api_key, URL: @url', array('@chargebee_id' => $chargebee_id, '@api_key' => $api_key, '@url' => $url), WATCHDOG_DEBUG);
+
+  // Your payload for creating a portal session.
+  $data = array(
+    'customer_id' => $chargebee_id,
+  );
+
+  watchdog('chargebee_portal', 'Payload: @payload', array('@payload' => json_encode($data)), WATCHDOG_DEBUG);
+
+  // Make the HTTP request.
+  $options = array(
+    'method' => 'POST',
+    'data' => json_encode($data),
+    'headers' => array(
+      'Content-Type' => 'application/json',
+      'Authorization' => 'Basic ' . base64_encode($api_key . ':'),
+    ),
+  );
+  $response = drupal_http_request($url, $options);
+
+  // Log the response from the API.
+  watchdog('chargebee_portal', 'Response code: @code. Headers: @headers. Message: @message', array(
+    '@code' => $response->code,
+    '@headers' => print_r($response->headers, TRUE),
+    '@message' => $response->data,
+  ), WATCHDOG_DEBUG);
+
+  if ($response->code == 200) {
+    return json_decode($response->data, TRUE);
+  } else {
+    watchdog('chargebee_portal', 'Failed to create portal session. Response code: @code. Message: @message', array('@code' => $response->code, '@message' => $response->status_message), WATCHDOG_ERROR);
+    return NULL;
+  }
+}
+
+
+
+/**
+ * Implements hook_menu_alter().
+ */
+function chargebee_portal_menu_alter(&$items) {
+  // Redirecting user to our custom path for accessing the portal.
+  $items['portal_link']['page callback'] = 'chargebee_portal_payment_portal_redirect';
+}
+
+function chargebee_portal_user_view_alter(&$build) {
+  global $user;
+
+  // Load the user object for the profile being viewed
+  $account = user_load($build['#account']->uid);
+
+  // Check if the user is viewing their own profile and has a Chargebee ID
+  if ($user->uid == $account->uid && !empty($account->field_user_chargebee_id[LANGUAGE_NONE][0]['value'])) {
+    // Add the button to the profile page
+    $build['chargebee_button'] = array(
+      '#markup' => '<a href="/payment-portal" class="btn btn-primary">Access Chargebee Portal</a>',
+      '#weight' => 5, // Adjust the weight to control where the button appears on the page
+    );
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function chargebee_portal_permission() {
+  return array(
+    'edit chargebee id' => array(
+      'title' => t('Edit Chargebee ID'),
+      'description' => t('Allow specific roles to edit the Chargebee ID field.'),
+    ),
+  );
+}

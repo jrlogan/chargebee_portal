@@ -1,0 +1,5 @@
+name = Chargebee Portal
+description = Redirect users to the Chargebee payment portal.
+core = 7.x
+version = 7.x-1.0-dev
+package = Custom
