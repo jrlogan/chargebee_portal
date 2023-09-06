@@ -1,4 +1,4 @@
-Chargebee Portal Integration Module for Drupal
+Chargebee Portal Integration Module for Drupal 7
 ==============================================
 
 This Drupal module offers seamless integration with the Chargebee payment portal. It's designed with flexibility in mind, providing configuration settings tailored for both live and test environments. This ensures that administrators have the tools necessary for efficient management and testing of Chargebee portal sessions.
