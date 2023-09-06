@@ -27,7 +27,7 @@ function chargebee_portal_menu() {
     'weight' => 0,
   );
 
-  $form['chargebee_portal_login_url'] = array(
+$form['chargebee_portal_login_url'] = array(
   '#type' => 'textfield',
   '#title' => t('Chargebee Portal Login URL'),
   '#description' => t('Enter the default URL where users can login to the Chargebee portal.'),
@@ -47,20 +47,20 @@ function chargebee_portal_menu() {
     'weight' => 1,
   );
 
-  $items['payment-portal'] = array(
+$items['payment-portal'] = array(
   'title' => 'Payment Portal',
   'page callback' => 'chargebee_portal_payment_portal_redirect',
-  'access callback' => TRUE,
+  'access callback' => 'user_is_logged_in',  // Check if the user is logged in
   'type' => MENU_CALLBACK,
 );
+
 
   return $items;
 }
 
 
-/**
- * Redirect user to Chargebee payment portal.
- */
+
+
 /**
  * Redirect user to Chargebee payment portal.
  */
@@ -180,6 +180,15 @@ function chargebee_portal_menu_alter(&$items) {
   // Redirecting user to our custom path for accessing the portal.
   $items['portal_link']['page callback'] = 'chargebee_portal_payment_portal_redirect';
 }
+
+/**
+ * Implements hook_form_alter() to hide safe config button on testing
+ */
+function chargebee_portal_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'chargebee_portal_admin_testing_settings') {
+    unset($form['actions']['submit']);
+  }
+} 
 
 function chargebee_portal_user_view_alter(&$build) {
   global $user;

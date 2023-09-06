@@ -47,12 +47,6 @@ function chargebee_portal_admin_testing_settings($form, &$form_state) {
   $test_api_key = isset($form_state['input']['test_api_key']) ? $form_state['input']['test_api_key'] : variable_get('chargebee_portal_test_api_key', '');
   $test_chargebee_user_id = isset($form_state['input']['test_chargebee_user_id']) ? $form_state['input']['test_chargebee_user_id'] : variable_get('chargebee_portal_test_chargebee_user_id', '');
 
-  $form['testing_environment'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Testing Environment'),
-    '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
-  );
 
   $form['testing_environment']['test_url'] = array(
     '#type' => 'textfield',
@@ -75,11 +69,11 @@ function chargebee_portal_admin_testing_settings($form, &$form_state) {
     '#default_value' => $test_chargebee_user_id, // Use variable directly
   );
 
-  $form['testing_environment']['test_button'] = array(
-    '#type' => 'submit',
-    '#value' => t('Run Test'),
-    '#submit' => array('chargebee_portal_run_test_submit'),
-  );
+ $form['testing_environment']['test_button'] = array(
+        '#type' => 'submit',
+        '#value' => t('Run Test and Save'),
+        '#submit' => array('chargebee_portal_run_test_submit'),
+    );
 
  // Fieldset for Test Results
     $form['test_results'] = array(
@@ -92,8 +86,11 @@ function chargebee_portal_admin_testing_settings($form, &$form_state) {
         '#markup' => variable_get('chargebee_portal_test_results', 'No tests run yet.'),
     );
 
+    unset($form['actions']['submit']); // Remove the default "Save configuration" button
+
     return system_settings_form($form);
 }
+
 
 function chargebee_portal_run_test_submit($form, &$form_state) {
     $test_url = $form_state['values']['test_url'];
