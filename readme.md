@@ -1,41 +1,32 @@
-# Chargebee Portal Integration Module
+Chargebee Portal Integration Module for Drupal
+==============================================
 
-This Drupal module provides integration with the Chargebee payment portal. It includes configuration settings for both live and testing environments, allowing administrators to easily manage and test Chargebee portal sessions.
+This Drupal module offers seamless integration with the Chargebee payment portal. It's designed with flexibility in mind, providing configuration settings tailored for both live and test environments. This ensures that administrators have the tools necessary for efficient management and testing of Chargebee portal sessions.
 
-## Installation
+Features:
+---------
+- Flexible Configuration: Easily switch between live and testing environments.
+- Easy Testing: Use the built-in testing tools to quickly validate portal sessions.
+- Dynamic Redirection: Redirect users based on their session status and other conditions.
 
-1. Upload the `chargebee_portal` module to your Drupal modules directory.
-2. Enable the module via the Drupal administration interface or using Drush.
+Installation:
+-------------
+1. Upload the `chargebee_portal` module to your Drupal `sites/all/modules` directory.
+2. Navigate to the Modules section in your Drupal administration interface.
+3. Locate `Chargebee Portal Integration` and enable it.
 
-## Configuration
+Configuration:
+--------------
+To configure the module:
+1. Navigate to the configuration page at `/admin/config/services/chargebee_portal`.
+2. Enter the required settings for both Live and Testing environments.
 
-Navigate to the configuration page at `/admin/config/services/chargebee_portal` to set up the module.
+Documentation:
+--------------
+For more information, API details, and other documentation, visit the [Chargebee API Documentation](https://apidocs.chargebee.com/docs/api/portal_sessions).
 
-### Live Environment
 
-In the "Live Environment" section, you can configure the following settings:
-
-- **Live API Key**: Enter the API key for the Chargebee live environment. You can obtain this key from [Chargebee's API keys page](https://yourdomain.chargebee.com/apikeys_and_webhooks/api) (replace `yourdomain` with your specific domain).
-- **Live Portal URL**: Enter the endpoint URL for the Chargebee live environment. Example format: `https://yourdomain.chargebee.com/api/v2/portal_sessions`.
-
-### Testing Environment
-
-In the "Testing Environment" section, you can configure settings for testing the integration:
-
-- **Test URL**: Enter the endpoint URL for the Chargebee testing environment.
-- **Test API Key**: Enter the API key for the Chargebee testing environment.
-- **Test Chargebee User ID**: Enter a Chargebee User ID to use for testing.
-
-You can then click the "Run Test" button to perform a test using the provided parameters. The result of the test will be displayed as a message.
-
-## Documentation
-
-Further documentation and API details can be found at [Chargebee API Documentation](https://apidocs.chargebee.com/docs/api/portal_sessions).
-
-## Support
-
-For any issues or support related to this module, please contact the module maintainer or refer to the official Drupal community forums.
-
-## License
-
+License:
+--------
 This module is licensed under the GNU General Public License, version 2 or later.
+

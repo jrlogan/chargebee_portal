@@ -27,6 +27,15 @@ function chargebee_portal_menu() {
     'weight' => 0,
   );
 
+  $form['chargebee_portal_login_url'] = array(
+  '#type' => 'textfield',
+  '#title' => t('Chargebee Portal Login URL'),
+  '#description' => t('Enter the default URL where users can login to the Chargebee portal.'),
+  '#default_value' => variable_get('chargebee_portal_login_url', 'https://yoursite.chargebeeportal.com/'),
+  '#required' => TRUE,
+);
+
+
   $items['admin/config/services/chargebee_portal/testing'] = array(
     'title' => 'Testing',
     'description' => 'Configure the Chargebee Portal testing settings.',
@@ -52,80 +61,115 @@ function chargebee_portal_menu() {
 /**
  * Redirect user to Chargebee payment portal.
  */
+/**
+ * Redirect user to Chargebee payment portal.
+ */
 function chargebee_portal_payment_portal_redirect() {
-  global $user;
+    global $user;
 
-  // Load the user account.
-  $account = user_load($user->uid);
-  $chargebee_id = isset($account->field_user_chargebee_id[LANGUAGE_NONE][0]['value']) ? $account->field_user_chargebee_id[LANGUAGE_NONE][0]['value'] : '';
+    // Load the user account.
+    $account = user_load($user->uid);
+    $chargebee_id = isset($account->field_user_chargebee_id[LANGUAGE_NONE][0]['value']) ? $account->field_user_chargebee_id[LANGUAGE_NONE][0]['value'] : '';
 
-  if (empty($chargebee_id)) {
-    drupal_set_message(t('Chargebee ID not found.'), 'error');
-    drupal_goto('<front>');
-    return;
-  }
+    if (empty($chargebee_id)) {
+        // If Chargebee ID is not found, try to redirect to the default Chargebee login portal.
+        $default_login_url = variable_get('chargebee_portal_login_url', '');
 
-  // Determine the current path.
-  $current_path = current_path();
+        if (!empty($default_login_url)) {
+            drupal_goto($default_login_url, array('external' => TRUE));
+            exit;  // Ensure no further processing after redirection.
+        } else {
+            drupal_set_message(t('The Chargebee portal login URL is not configured. Please contact the site administrator.'), 'error');
+            drupal_goto('<front>'); // Redirect to the homepage or any other fallback page.
+            exit;
+        }
+    }
 
-  // Determine the environment based on the path.
-  if ($current_path == 'admin/config/services/chargebee_portal/testing') {
-    $api_key = variable_get('chargebee_portal_test_api_key', '');
-    $url = variable_get('chargebee_portal_test_url', '');
-  } else {
-    $api_key = variable_get('chargebee_live_api_key', '');
-    $url = variable_get('chargebee_live_portal_url', '');
-  }
 
-  // Make a call to the Chargebee "Create a portal session" API.
-  $response = chargebee_portal_create_session($chargebee_id, $api_key, $url);
+    // Determine the current path.
+    $current_path = current_path();
 
-  if (isset($response['access_url'])) {
-    // Redirect the user to the access URL provided by Chargebee.
-    drupal_goto($response['access_url']);
-  } else {
-    drupal_set_message(t('Failed to create a portal session.'), 'error');
-    drupal_goto('<front>');
-  }
+    // Determine the environment based on the path.
+    if ($current_path == 'admin/config/services/chargebee_portal/testing') {
+        $api_key = variable_get('chargebee_portal_test_api_key', '');
+        $url = variable_get('chargebee_portal_test_url', '');
+    } else {
+        $api_key = variable_get('chargebee_live_api_key', '');
+        $url = variable_get('chargebee_live_portal_url', '');
+    }
+
+    // Make a call to the Chargebee "Create a portal session" API.
+    $response = chargebee_portal_create_session($chargebee_id, $api_key, $url);
+
+    // Redirect the user to the Chargebee portal directly using the access URL.
+    if (isset($response['data']['portal_session']['access_url'])) {
+        drupal_goto($response['data']['portal_session']['access_url'], array('external' => TRUE));
+        exit;  // Ensure no further processing after redirection.
+    } else {
+        drupal_set_message(t('Failed to create a portal session.'), 'error');
+        return t('Failed to create a portal session.');
+    }
 }
+
 
 
 function chargebee_portal_create_session($chargebee_id, $api_key, $url) {
-  // Log the input parameters and payload being sent to the API.
-  watchdog('chargebee_portal', 'Input Parameters: Chargebee ID: @chargebee_id, API Key: @api_key, URL: @url', array('@chargebee_id' => $chargebee_id, '@api_key' => $api_key, '@url' => $url), WATCHDOG_DEBUG);
+    // Determine if we're in testing mode
+    global $base_url;
+    $current_path = current_path();
+    $isTesting = ($current_path == 'admin/config/services/chargebee_portal/testing');
 
-  // Your payload for creating a portal session.
-  $data = array(
-    'customer_id' => $chargebee_id,
-  );
+    // If in testing mode, log the input parameters and payload being sent to the API.
+    if ($isTesting) {
+        watchdog('chargebee_portal', 'Input Parameters: Chargebee ID: @chargebee_id, API Key: @api_key, URL: @url', array('@chargebee_id' => $chargebee_id, '@api_key' => $api_key, '@url' => $url), WATCHDOG_DEBUG);
+    }
 
-  watchdog('chargebee_portal', 'Payload: @payload', array('@payload' => json_encode($data)), WATCHDOG_DEBUG);
+    // Your payload for creating a portal session.
+    $data = array(
+        'redirectUrl' => $base_url . '/user',
+        'customer[id]' => $chargebee_id
+    );
 
-  // Make the HTTP request.
-  $options = array(
-    'method' => 'POST',
-    'data' => json_encode($data),
-    'headers' => array(
-      'Content-Type' => 'application/json',
-      'Authorization' => 'Basic ' . base64_encode($api_key . ':'),
-    ),
-  );
-  $response = drupal_http_request($url, $options);
+    // If in testing mode, log the payload
+    if ($isTesting) {
+        watchdog('chargebee_portal', 'Payload: @payload', array('@payload' => drupal_http_build_query($data)), WATCHDOG_DEBUG);
+    }
 
-  // Log the response from the API.
-  watchdog('chargebee_portal', 'Response code: @code. Headers: @headers. Message: @message', array(
-    '@code' => $response->code,
-    '@headers' => print_r($response->headers, TRUE),
-    '@message' => $response->data,
-  ), WATCHDOG_DEBUG);
+    // Make the HTTP request.
+    $options = array(
+        'method' => 'POST',
+        'data' => drupal_http_build_query($data),
+        'headers' => array(
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'Authorization' => 'Basic ' . base64_encode($api_key . ':'),
+        ),
+    );
+    $response = drupal_http_request($url, $options);
 
-  if ($response->code == 200) {
-    return json_decode($response->data, TRUE);
-  } else {
-    watchdog('chargebee_portal', 'Failed to create portal session. Response code: @code. Message: @message', array('@code' => $response->code, '@message' => $response->status_message), WATCHDOG_ERROR);
-    return NULL;
-  }
+    // If in testing mode, log the response from the API.
+    if ($isTesting) {
+        watchdog('chargebee_portal', 'Response code: @code. Headers: @headers. Message: @message', array(
+            '@code' => $response->code,
+            '@headers' => print_r($response->headers, TRUE),
+            '@message' => $response->data,
+        ), WATCHDOG_DEBUG);
+    }
+
+    if ($response->code == 200) {
+        watchdog('chargebee_portal', 'Portal session created successfully for Chargebee ID: @chargebee_id', array('@chargebee_id' => $chargebee_id), WATCHDOG_INFO);
+        return array(
+            'success' => true,
+            'data' => json_decode($response->data, TRUE)
+        );
+    } else {
+        watchdog('chargebee_portal', 'Failed to create portal session for Chargebee ID: @chargebee_id. Response code: @code. Message: @message', array('@chargebee_id' => $chargebee_id, '@code' => $response->code, '@message' => $response->status_message), WATCHDOG_ERROR);
+        return array(
+            'success' => false,
+            'error_details' => $response->status_message
+        );
+    }
 }
+
 
 
 
